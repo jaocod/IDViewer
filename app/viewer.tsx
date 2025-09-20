@@ -1,22 +1,24 @@
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import { useLocalSearchParams } from "expo-router";
 import * as Sharing from "expo-sharing";
 import React from "react";
 import {
+  ActivityIndicator,
   Alert,
   Dimensions,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
-import ImageViewer from 'react-native-image-zoom-viewer';
+import ImageViewer from "react-native-image-zoom-viewer";
 import Pdf from "react-native-pdf";
 
 const { width, height } = Dimensions.get("window");
 export default function Viewer() {
   const params = useLocalSearchParams();
   const uri = params.uri as string;
+  const [loading, setLoading] = React.useState(true);
 
   if (!uri) {
     return (
@@ -31,14 +33,17 @@ export default function Viewer() {
 
   const images = [
   {
-    url: '', // vazio aqui
+    url: fileUri,
     props: {
-      source: {
-        uri: fileUri,
+      onLoadEnd: () => setLoading(false),
+      onError: () => {
+        Alert.alert("Erro", "Falha ao carregar a imagem.");
+        setLoading(false);
       },
     },
   },
 ];
+
   // pega extensão do arquivo
   const extension = fileUri.split(".").pop()?.toLowerCase();
 
@@ -60,11 +65,9 @@ export default function Viewer() {
 
   async function downloadFile() {
     try {
-      const dest = `${
-        (FileSystem as any).cacheDirectory ??
-        (FileSystem as any).documentDirectory ??
-        ""
-      }${name ?? fileUri.split("/").pop() ?? "arquivo"}`;
+      const dest = `${FileSystem.documentDirectory ?? ""}${
+        fileUri.split("/").pop() ?? "arquivo"
+      }`;
 
       await FileSystem.copyAsync({ from: fileUri, to: dest });
       Alert.alert("Sucesso", `Arquivo salvo em: ${dest}`);
@@ -86,27 +89,39 @@ export default function Viewer() {
   );
 
   // imagens
-  if (["jpg", "jpeg", "png", "webp"].includes(extension ?? "")) {
+  // 🔁 Render principal com base na extensão
+  if (["jpg", "jpeg", "png", "webp", "heic"].includes(extension ?? "")) {
     return (
       <View style={styles.container}>
-    <ActionsBar />
-    <ImageViewer
-      imageUrls={images}
-      backgroundColor="#000"
-      enableSwipeDown={true}
-      onSwipeDown={() => console.log('Swipe down to close (implementar se quiser)')}
-      saveToLocalByLongPress={false} // já tem botão de download separado
-    />
+        <ActionsBar />
+        {loading && (
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color="#fff" />
+          </View>
+        )}
+        <ImageViewer
+          imageUrls={images}
+          backgroundColor="#000"
+          enableSwipeDown={true}
+          onSwipeDown={() => console.log("Swipe down to close")}
+          saveToLocalByLongPress={false}
+        />
       </View>
     );
-  } // PDFs offline via native PDF renderer
+  }
+
   if (extension === "pdf") {
     return (
       <View style={styles.container}>
-        <ActionsBar /> <Pdf source={{ uri: fileUri, cache: true }} style={styles.pdf} />
+        <ActionsBar />
+        <Pdf
+        source={{ uri: fileUri, cache: true }}
+        style={styles.pdf}
+        />
       </View>
     );
-  } // Word/Excel:
+  }
+  // Word/Excel:
   //Google Docs Viewer requires a public URL; local file won't load
   if (["doc", "docx", "xls", "xlsx"].includes(extension ?? "")) {
     return (
@@ -171,5 +186,12 @@ const styles = StyleSheet.create({
   downloadButton: {
     color: "green",
     marginLeft: 16,
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 99,
   },
 });

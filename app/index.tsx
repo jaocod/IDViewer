@@ -12,9 +12,9 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
-import ImageZoom from 'react-native-image-pan-zoom';
+import ImageViewing from "react-native-image-viewing";
 
 const { width, height } = Dimensions.get("window");
 
@@ -27,6 +27,7 @@ export default function Home() {
   const [docs, setDocs] = useState<DocItem[]>([]);
   const [selectedDoc, setSelectedDoc] = useState<DocItem | null>(null);
   const router = useRouter();
+  const [imageViewerVisible, setImageViewerVisible] = useState(false);
 
   // função pra pegar o diretório local
   async function getDocsDir() {
@@ -232,37 +233,31 @@ export default function Home() {
     );
   }
 
+  
+
   // função para renderizar o documento selecionado
   function renderDocument(doc: DocItem) {
     const extension = doc.uri.split(".").pop()?.toLowerCase();
 
     // imagens
-   if (
-  ["jpg", "jpeg", "png", "webp", "gif", "bmp"].includes(extension ?? "")
-) {
-  return (
-     <View style={styles.documentContainer}>
-    <ImageZoom
-      cropWidth={width}
-      cropHeight={height}
-      imageWidth={width}
-      imageHeight={height}
-      minScale={1}
-      maxScale={4}
-      enableCenterFocus={true}
-      useNativeDriver={true}
-      pinchToZoom={true}
-      enableSwipeDown={false}
-    >
-      <Image
-        source={{ uri: doc.uri }}
-        style={{ width, height }}
-        resizeMode="contain"
-      />
-    </ImageZoom>
-  </View>
-  );
-}
+    if (
+      ["jpg", "jpeg", "png", "webp", "gif", "bmp"].includes(extension ?? "")
+    ) {
+      return (
+        <View style={styles.documentContainer}>
+          <TouchableOpacity
+            style={{ flex: 1 }}
+            onPress={() => setImageViewerVisible(true)}
+          >
+            <Image
+              source={{ uri: doc.uri }}
+              style={{ width: "100%", height: "100%" }}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
+        </View>
+      );
+    }
 
     // vídeos
     if (["mp4", "mov", "avi", "mkv", "webm"].includes(extension ?? "")) {
@@ -310,14 +305,10 @@ export default function Home() {
     }
 
     // PDFs - redireciona para a tela viewer
-    if (extension === "pdf") {
-      // Navega para a tela viewer passando a URI
-      setTimeout(() => {
-        router.push({ pathname: "/viewer", params: { uri: encodeURIComponent(doc.uri) } });
-      }, 0);
+    if (selectedDoc && selectedDoc.uri.endsWith(".pdf")) {
       return (
-        <View style={styles.documentContainer}>
-          <Text style={styles.unsupportedText}>Abrindo PDF...</Text>
+        <View>
+          <Text>Abrindo PDF...</Text>
         </View>
       );
     }
@@ -372,6 +363,15 @@ export default function Home() {
     loadDocs();
   }, []);
 
+  useEffect(() => {
+    if (selectedDoc && selectedDoc.uri.endsWith(".pdf")) {
+      router.push({
+        pathname: "/viewer",
+        params: { uri: encodeURIComponent(selectedDoc.uri) },
+      });
+    }
+  }, [selectedDoc]);
+
   return (
     <View style={styles.container}>
       <TouchableOpacity style={styles.addButton} onPress={addFile}>
@@ -384,12 +384,22 @@ export default function Home() {
             <Text style={styles.viewerTitle}>{selectedDoc.name}</Text>
             <TouchableOpacity
               style={styles.closeButton}
-              onPress={() => setSelectedDoc(null)}
+              onPress={() => {
+                setSelectedDoc(null);
+                router.replace("/"); // <-- volta para a página inicial
+              }}
             >
               <Text style={styles.closeButtonText}>✕</Text>
             </TouchableOpacity>
           </View>
           {renderDocument(selectedDoc)}
+          <ImageViewing
+            images={[{ uri: selectedDoc?.uri ?? "" }]}
+            imageIndex={0}
+            visible={imageViewerVisible}
+            onRequestClose={() => setImageViewerVisible(false)}
+            swipeToCloseEnabled
+          />
         </View>
       ) : (
         <ScrollView
