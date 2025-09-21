@@ -32,20 +32,20 @@ export default function Viewer() {
   const fileUri = decodeURIComponent(uri);
 
   const images = [
-  {
-    url: fileUri,
-    props: {
-      onLoadEnd: () => setLoading(false),
-      onError: () => {
-        Alert.alert("Erro", "Falha ao carregar a imagem.");
-        setLoading(false);
+    {
+      url: fileUri,
+      props: {
+        onLoadEnd: () => setLoading(false),
+        onError: () => {
+          Alert.alert("Erro", "Falha ao carregar a imagem.");
+          setLoading(false);
+        },
       },
     },
-  },
-];
+  ];
 
   // pega extensão do arquivo
-  const extension = fileUri.split(".").pop()?.toLowerCase();
+  const extension = fileUri.split('.').pop()?.toLowerCase() ?? '';
 
   async function shareFile() {
     try {
@@ -114,25 +114,51 @@ export default function Viewer() {
     return (
       <View style={styles.container}>
         <ActionsBar />
-        <Pdf
-        source={{ uri: fileUri, cache: true }}
-        style={styles.pdf}
-        />
+        <Pdf source={{ uri: fileUri, cache: true }} style={styles.pdf} />
       </View>
     );
   }
   // Word/Excel:
   //Google Docs Viewer requires a public URL; local file won't load
+
   if (["doc", "docx", "xls", "xlsx"].includes(extension ?? "")) {
+   async function openWithExternalApp(fileUri: string) {
+  try {
+    const isAvailable = await Sharing.isAvailableAsync();
+    const mimeType = getMimeType(extension);
+
+    if (!isAvailable) {
+      Alert.alert("Erro", "Compartilhamento não disponível neste dispositivo.");
+      return;
+    }
+
+    // Isso abre a tela do sistema para escolher o app para abrir o arquivo
+    await Sharing.shareAsync(fileUri, {
+      mimeType,
+      dialogTitle: "Abrir com...",
+    });
+  } catch (error) {
+    console.error("Erro ao abrir arquivo:", error);
+    Alert.alert("Erro", "Não foi possível abrir o arquivo.");
+  }
+}
+
     return (
       <View style={styles.center}>
-        <ActionsBar />{" "}
-        <Text>Arquivos Office locais não podem ser abertos diretamente.</Text>{" "}
-        <Text style={{ marginTop: 8, textAlign: "center" }}>
-          {" "}
-          Envie o arquivo para a nuvem e abra via link público, ou converta para
-          PDF.{" "}
-        </Text>{" "}
+        <ActionsBar />
+        <Text style={{ marginBottom: 12, textAlign: "center" }}>
+          Este é um arquivo do Office: {fileUri.split("/").pop()}
+        </Text>
+        <TouchableOpacity
+          onPress={() => openWithExternalApp(fileUri)}
+          style={{
+            padding: 12,
+            backgroundColor: "#007bff",
+            borderRadius: 8,
+          }}
+        >
+          <Text style={{ color: "#fff" }}>Abrir com aplicativo externo</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -195,3 +221,41 @@ const styles = StyleSheet.create({
     zIndex: 99,
   },
 });
+
+function getMimeType(extension: string) {
+  switch (extension.toLowerCase()) {
+    case "doc":
+      return "application/msword";
+    case "docx":
+      return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    case "xls":
+      return "application/vnd.ms-excel";
+    case "xlsx":
+      return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    case "pdf":
+      return "application/pdf";
+    case "ppt":
+      return "application/vnd.ms-powerpoint";
+    case "pptx":
+      return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+    case "txt":
+      return "text/plain";
+    case "rtf":
+      return "application/rtf";
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    case "png":
+      return "image/png";
+    case "gif":
+      return "image/gif";
+    case "mp4":
+      return "video/mp4";
+    case "mp3":
+      return "audio/mpeg";
+    case "csv":
+      return "text/csv";
+    default:
+      return "application/octet-stream"; // tipo genérico
+  }
+}

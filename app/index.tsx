@@ -314,21 +314,15 @@ export default function Home() {
     }
 
     // Word/Excel
-    if (["doc", "docx", "xls", "xlsx"].includes(extension ?? "")) {
-      return (
-        <View style={styles.documentContainer}>
-          <View style={styles.unsupportedContainer}>
-            <Text style={styles.unsupportedText}>
-              Arquivos Office locais não podem ser abertos diretamente.
-            </Text>
-            <Text style={styles.unsupportedSubtext}>
-              Envie o arquivo para a nuvem e abra via link público, ou converta
-              para PDF.
-            </Text>
-          </View>
-        </View>
-      );
-    }
+    // Word/Excel: Redireciona para o viewer
+if (selectedDoc && ["doc", "docx", "xls", "xlsx"].includes(extension ?? "")) {
+  return (
+    <View>
+      <Text>Abrindo documento Office...</Text>
+    </View>
+  );
+}
+
 
     // arquivos compactados
     if (["zip", "rar", "7z"].includes(extension ?? "")) {
@@ -364,13 +358,19 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (selectedDoc && selectedDoc.uri.endsWith(".pdf")) {
-      router.push({
-        pathname: "/viewer",
-        params: { uri: encodeURIComponent(selectedDoc.uri) },
-      });
-    }
-  }, [selectedDoc]);
+  if (
+    selectedDoc &&
+    [".pdf", ".doc", ".docx", ".xls", ".xlsx"].some((ext) =>
+      selectedDoc.uri.toLowerCase().endsWith(ext)
+    )
+  ) {
+    router.push({
+      pathname: "/viewer",
+      params: { uri: encodeURIComponent(selectedDoc.uri) },
+    });
+  }
+}, [selectedDoc]);
+
 
   return (
     <View style={styles.container}>
